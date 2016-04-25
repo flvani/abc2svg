@@ -452,7 +452,7 @@ function put_history() {
 			h = gene.curfont.size * cfmt.lineskipfac
 		}
 		head = names[i].slice(2)
-		if (head[0] = '"')
+		if (head[0] == '"')
 			head = head.slice(1, -1)
 		vskip(h);
 		xy_str(0, 0, head);

@@ -82,7 +82,7 @@ s+@MAJOR@+$MAJOR+;$
 s+@PS@+ with PostScript+$
 " e.xhtml > pseloc-$MAJOR.xhtml
 
-build abc2svg-$MAJOR.js: jsc head.js abc2svg.js deco.js draw.js $
+    build abc2svg-$MAJOR.js: jsc head.js abc2svg.js deco.js draw.js $
  format.js front.js music.js parse.js subs.js svg.js tune.js lyrics.js gchord.js $
  tail.js | Changes
 

@@ -1,0 +1,575 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script src="abc2svg.js" type="text/javascript" async="true"></script>
+<script src="play.js" type="text/javascript" async="true"></script>
+<script src="user.js" type="text/javascript" async="false"></script>
+<style>
+	body, html {height: 90%;}
+	svg {display:block}
+	text tspan {white-space:pre; fill:currentColor}
+	#dright:hover {z-index: 10 !important}
+	#dright:active {z-index: 10 !important}
+	.help { position:relative; display:inline;}
+	.help>aside {
+		display: none;
+		position: absolute; width:400px; left:-150px; top:20px;
+		background-color:#e0e0e0; font-size:small;
+		border:1px solid black}
+	.help:hover>aside {display:block; z-index: 20 }
+	@media screen {
+		#dright {
+			width: auto;
+			position: absolute; top: 0; bottom:0; right:0;
+			background-color: white;
+			overflow: auto
+		}
+	}
+	@media print {
+		#dright>div {
+			visibility: visible
+		}
+		#dleft, #dright {
+			visibility: hidden
+		}
+	}
+</style>
+<title>ABC edit with abc2svg</title>
+
+<script type="text/javascript">
+//<![CDATA[
+
+window.addEventListener('load', initApp, false);
+
+var	user;
+var	srcidx;
+
+function initApp() {
+    user = new SITE.User();
+    srcidx = 0;
+};
+
+// debug
+function debug(msg) {
+    var diverr = document.getElementById("diverr");
+    diverr.innerHTML += msg + "<br/>\n";
+}
+
+// -- local functions
+
+// load the (ABC source or include) file in its textarea
+function loadtune() {
+	var files = document.getElementById("abcfile").files;
+	if (!files.length) {
+            alert('Please select a file!');
+            return;
+	}
+	abc_fname[srcidx] = files[0].name;
+
+	var reader = new FileReader();
+
+	// Closure to capture the file information
+	reader.onloadend = function(e) {
+            var	content = e.target.result,
+                    s = srcidx === 0 ? "source" : "src1";
+            document.getElementById(s).value = content;
+            document.getElementById("s" + srcidx).value = abc_fname[srcidx];
+
+            // if load of the ABC source, check if there is an include file
+            if (srcidx > 0)
+                    return;
+            var	sl = document.getElementById("s1"),
+                    i = content.indexOf('%%abc-include ');
+            if (i < 0) {
+                    sl.style.display = "none";
+                    return;
+            }
+            sl.style.display = "inline";
+            var j = content.indexOf('\n', i);
+            sl.value = content.slice(i + 14, j);
+	};
+
+	// Read the file as text
+	reader.readAsText(files[0], "UTF-8");
+}
+
+// display the source 0 or 1
+function selsrc(idx) {
+	if (idx === srcidx)
+		return;
+	var	o = srcidx ? "src" + srcidx : "source",
+		n = idx ? "src" + idx : "source";
+	document.getElementById(o).style.display = "none";
+	document.getElementById(n).style.display = "inline";
+	document.getElementById("s" + srcidx).style.backgroundColor = "#ffd0d0";
+	document.getElementById("s" + idx).style.backgroundColor = "#80ff80";
+	srcidx = idx;
+}
+
+// render the textarea content to the right side
+function render() {
+    
+	var target = document.getElementById("target");
+
+	try {
+		target.innerHTML = document.getElementById("source").value;
+	} catch(e) {
+		alert(e.message + '\nabc2svg image bug - abort')
+		return;
+	};
+
+	// set callbacks on all abc rectangles
+	setTimeout(function(){
+		var	elts = document.getElementsByClassName('abcr'),
+			i = elts.length,
+			elt
+		while (--i >= 0) {
+			elt = elts[i];
+			elt.onclick = function() {selabc(this)}
+			elt.onmouseover = function() {m_over(this)}
+			elt.onmouseout = function() {m_out(this)}
+		}
+	}, 300);
+};
+
+// select a source ABC element
+function gotoabc(l, c) {
+	var	s = document.getElementById("source"),
+		idx = 0
+	while (--l >= 0) {
+		idx = s.value.indexOf('\n', idx) + 1
+		if (idx <= 0) {
+			alert('bad line number');
+			idx = s.value.length - 1;
+			c = 0
+			break
+		}
+	}
+	c = Number(c) + idx;
+	s.focus();
+	s.setSelectionRange(c, c + 1)
+}
+
+function setcolor(cl, color) {
+	var	elts = document.getElementsByClassName(cl),
+		i = elts.length,
+		elt
+	while (--i >= 0) {
+		elt = elts[i];
+		elt.setAttribute("color", color)
+	}
+}
+
+// highlight the music elements on mouse over
+// 'me' is the rectangle
+function m_over(me) {
+	var	cl = me.getAttribute('class')
+	setcolor(cl.replace('abcr ', 'e'), "#ff0000")
+}
+function m_out(me) {
+	var	cl = me.getAttribute('class')
+	setcolor(cl.replace('abcr ', 'e'), "black")
+}
+
+// select the ABC element when click on a SVG 'abcr' rectangle
+function selabc(me) {
+	var	c = me.getAttribute('class'),
+		d_s_l_d = c.split('_'),
+		i1 = Number(d_s_l_d[1]),
+		i2 = i1 + Number(d_s_l_d[2]),
+		s = document.getElementById("source");
+	s.focus();
+	s.setSelectionRange(i1, i2);
+
+// does not work
+//	s = document.getElementById("dright");
+//	s.style.zindex = 0
+}
+
+// colorize the selection
+function colorsel(color) {
+	var i, n = colcl.length
+	for (i = 0; i < n; i++)
+		setcolor(colcl[i], color)
+}
+
+// source text selection callback
+function seltxt(elt) {
+	var	i, n, o, start, end
+	if (colcl.length != 0) {
+		colorsel("black");
+		colcl = []
+	}
+	if (elt.selectionStart == undefined)
+		return
+	start = elt.selectionStart;
+	end = elt.selectionEnd
+	if (start == 0
+	 && end == document.getElementById("source").value.length)
+		return				// select all
+	n = ref.length
+	for (i = 0; i < n; i++) {
+		o = ref[i][0]
+		if (o >= start && o < end)
+			colcl.push('e_' + o + '_' + ref[i][1] + '_')
+	}
+	if (colcl.length != 0) {
+		colorsel("#ff0000")
+		var s = document.getElementById("dright")
+     var z = window.document.defaultView.getComputedStyle(s).getPropertyValue('z-index')
+//console.log("zindex " + z)
+		if (z != 10) {			// if select from textarea
+			var elts = document.getElementsByClassName(colcl[0]);
+			elts[0].scrollIntoView()	// move the element on the screen
+		}
+	}
+}
+
+// open a new window for file save
+function saveas() {      
+	var	s = srcidx == 0 ? "source" : "src1",
+		source = document.getElementById(s).value,
+
+	// create a Blob (html5 magic) that contains the ABC source
+		blob = new Blob([source], {type:'text/plain;charset=UTF-8"'}),
+
+	// create a link for our script to 'click'
+		link = document.createElement("a");
+
+	link.download = abc_fname[0];
+	link.innerHTML = "Hidden Link";	
+
+	// allow the code to work in webkit & Gecko based browsers
+	// without the need for a if / else block.
+//jfm:window.URL is well defined in dwb (base webkit)
+//	window.URL = window.URL || window.webkitURL;
+          
+	// Create the link Object.
+	if (typeof saveURL != 'undefined')
+		window.URL.revokeObjectURL(saveURL);
+	saveURL = window.URL.createObjectURL(blob);
+	link.href = saveURL;
+
+	// open in a new tab for dwb
+	link.target = '_blank';
+
+	// when link is clicked call a function to remove it from
+	// the DOM in case user wants to save a second file.
+	link.onclick = destroyClickedElement;
+
+	// make sure the link is hidden.
+	link.style.display = "none";
+
+	// add the link to the DOM
+	document.body.appendChild(link);
+    
+	// click the new link
+	link.click()
+}
+
+// destroy the clicked element
+function destroyClickedElement(event) {
+	document.body.removeChild(event.target);
+}
+
+// set the size of the font of the textarea
+function setfont() {
+	var	i = document.getElementById("fontsize");
+	document.getElementById("source").style.fontSize = i.value.toString() + "px"
+	document.getElementById("src1").style.fontSize = i.value.toString() + "px"
+}
+
+// playing
+//fixme: do tune/start-stop selection of what to play 
+function endplay() {
+	document.getElementById("playbutton").innerHTML = "Play"
+	playing = false
+}
+function play_tune() {
+	if (playing) {
+		abcplay.stop()
+		endplay()
+		return
+	}
+	delete user.img_out
+	var abc = new Abc(user);
+	playing = true;			// get the schema and stop SVG generation
+	abcplay.clear()			// clear all playing events
+	try {
+		abc.tosvg(abc_fname[0], document.getElementById("source").value);
+	} catch(e) {
+		alert(e.message + '\nabc2svg tosvg bug - stack:\n' + e.stack)
+		playing = false
+		return
+	}
+	document.getElementById("playbutton").innerHTML = "Stop";
+	abcplay.play(0, 100000)		// play all events
+}
+
+// set the version and initialize the playing engine
+function edit_init() {
+	if (typeof abc2svg != "object"
+	 || !abc2svg.version
+	 || typeof AbcPlay != "function") {
+		setTimeout(edit_init, 500)
+		return
+	}
+	document.getElementById("abc2svg").innerHTML =
+		'abc2svg-' + abc2svg.version + ' (' + abc2svg.vdate + ')';
+	abcplay = new AbcPlay(endplay)
+	if (!abcplay.play) {
+		delete abcplay;
+//		document.getElementById("playbutton").style.display = "none"
+		document.getElementById("playdiv").style.display = "none"
+	}
+}
+
+// drag and drop
+function drag_over(evt) {
+	if (evt.dataTransfer.types) {
+	    for (var i = 0; i < evt.dataTransfer.types.length; i++) {
+		if (evt.dataTransfer.types[i] == "Files") {
+			evt.stopPropagation();
+			evt.preventDefault();
+			evt.dataTransfer.dropEffect = 'copy'	// show 'copy'
+			return
+		}
+	    }
+	}
+}
+function dropped(evt) {
+	if (evt.dataTransfer.types) {
+	    for (var i = 0; i < evt.dataTransfer.types.length; i++) {
+		if (evt.dataTransfer.types[i] == "Files") {
+			evt.stopPropagation();
+			evt.preventDefault();
+			var reader = new FileReader();
+			reader.onload = function(event) {
+				document.getElementById('source').value =
+						event.target.result
+			}
+			var files = evt.dataTransfer.files; // FileList object.
+			reader.readAsText(files[0],"UTF-8")
+			return
+		}
+	    }
+	}
+//	document.getElementById('source').value =
+//		evt.dataTransfer.getData("Text")
+}
+
+setTimeout(edit_init, 500)
+//]]>
+</script>
+
+</head>
+<body ontouchstart="">
+
+<!-- left -->
+<div id="dleft" style="width: auto;
+	position: absolute; top: 0; bottom:0; left: 0;
+	background-color:#faf0e6;
+	z-index: 2;
+	overflow: auto;">
+
+<h4 style="text-align: center">ABC web editor</h4>
+
+<!-- buttons -->
+Font size:
+<input type="number" id="fontsize" min="10" max="20" value="14" onchange="setfont()"/>
+
+<input id="saveas" type="button" value="Save"/>
+<input id="render" type="button" value="Render the tunes"/>
+<!-- help -->
+<div class="help">Help
+<aside>
+<ul>
+<li>You may either:
+    <ul>
+	<li>directly write ABC code in the text area, or</li>
+	<li>paste ABC code in the text area, or</li>
+	<li>select a local ABC file ('Choose File'), or</li>
+	<li>drag &amp; drop a local file from your file manager to the text area.</li>
+    </ul></li>
+<li>You may change at will the ABC code in the text area.</li>
+<li>Click on 'Render the tunes' to render the tunes
+	on the right side of the page.</li>
+<li>The 'Print' of the browser outputs the rendering area.</li>
+</ul>
+</aside>
+</div>
+<br/>
+<div id="playdiv">
+General volume:
+<input id="gvol" type="range" min="1" max="10" value="7"
+	onchange="abcplay.set_g_vol(this.value / 10)"/>
+<input id="playbutton" type="button" value="Play"/>
+<br/>
+Oscillator volume:
+<input id="ovol" type="range" min="1" max="8" value="2"
+	onchange="abcplay.set_o_vol(this.value / 10)"/>
+</div>
+<input id="s0" type="button" style="display: inline; background-color: #80ff80"
+	value="(noname)"/>
+<input id="s1" type="button" style="display: none; background-color: #ffd0d0"
+	value="include"/>
+<input type="file" id="abcfile" accept="text/*" onchange="loadtune()"/>
+
+<!-- ABC source in textarea (main and include) -->
+<br/>
+<textarea id="source" rows="32" cols="72"
+	onselect="seltxt(this)"
+	style="font-family: monospace; font-size: 14px">
+<div class="nobrk"><svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xml:space="preserve" color="black"
+	width="794px" height="144px">
+<title>abc2svg - 1. T</title><style type="text/css">
+.fill {fill: currentColor}
+.stroke {stroke: currentColor; fill: none; stroke-width: .7}
+	rect.abcr {fill:#a08000; fill-opacity:0}
+	rect.abcr:hover {fill-opacity:0.3}
+
+.f1 {font:20px serif}
+.f2 {font:italic 14px serif}
+</style><defs>
+<path id="utclef" class="fill" transform="scale(0.045)"
+	d="m-50 44
+	c-72 -41 -72 -158 52 -188
+	150 -10 220 188 90 256
+	-114 52 -275 0 -293 -136
+	-15 -181 93 -229 220 -334
+	88 -87 79 -133 62 -210
+	-51 33 -94 105 -89 186
+	17 267 36 374 49 574
+	6 96 -19 134 -77 135
+	-80 1 -126 -93 -61 -133
+	85 -41 133 101 31 105
+	23 17 92 37 90 -92
+	-10 -223 -39 -342 -50 -617
+	0 -90 0 -162 96 -232
+	56 72 63 230 22 289
+	-74 106 -257 168 -255 316
+	9 153 148 185 252 133
+	86 -65 29 -192 -80 -176
+	-71 12 -105 67 -59 124"/>
+<use id="tclef" xlink:href="#utclef"/>
+<path id="csig" class="fill" transform="scale(0.0235, 0.0235)"
+	d="M303 -161
+	c8 1 12 2 18 3
+	c3 -4 4 -9 4 -13
+	c0 -28 -52 -54 -91 -54
+	c-61 2 -115 58 -115 210
+	c0 76 7 151 39 193
+	c23 29 49 42 81 42
+	c26 0 55 -10 83 -34
+	s47 -64 70 -112
+	c0 3 18 6 17 9
+	c-33 103 -76 164 -198 166
+	c-50 0 -100 -20 -138 -57
+	c-39 -38 -60 -91 -63 -159
+	c0 -4 -1 -43 -1 -47
+	c0 -168 88 -231 219 -232
+	c52 0 97 27 117 50
+	s34 49 34 75
+	c0 47 -25 94 -64 94
+	c-45 0 -73 -39 -73 -74
+	c2 -26 23 -60 60 -60h1z"/>
+<path id="hl" class="stroke" d="m-6 0h12"/>
+<ellipse id="hd" rx="4.1" ry="2.9"
+	transform="rotate(-20)" class="fill"/>
+</defs>
+<rect width="100%" height="100%" fill="white"/>
+<text class="f1" x="396.90" y="44.00" text-anchor="middle">T</text>
+<text class="f2" x="726.60" y="68.00" text-anchor="end">C</text>
+<g class="e_37_1_">
+<path class="stroke" d="m119.20 121.00v-24.00"/>
+</g>
+<rect class="abcr _37_1_" x="109.20" y="93.00" width="20.00" height="32.00"/>
+<g class="e_42_1_">
+<path class="stroke" d="m281.35 121.00v-24.00"/>
+</g>
+<rect class="abcr _42_1_" x="271.35" y="93.00" width="17.00" height="32.00"/>
+<path class="stroke" d="m67.20 121.00
+h214.15m-214.15 -6h214.15m-214.15 -6h214.15m-214.15 -6h214.15m-214.15 -6h214.15"/>
+<g class="e_26_10_">
+<use x="79.20" y="115.00" xlink:href="#tclef"/>
+</g>
+<rect class="abcr _26_10_" x="65.20" y="85.00" width="28.00" height="46.00"/>
+<g class="e_12_3_">
+<use x="92.70" y="109.00" xlink:href="#csig"/>
+</g>
+<rect class="abcr _12_3_" x="89.20" y="93.00" width="24.00" height="32.00"/>
+<g class="e_38_1_">
+<use x="133.35" y="91.00" xlink:href="#hl"/>
+<path class="stroke" d="m129.85 91.00v21.00"/>
+<use x="133.35" y="91.00" xlink:href="#hd"/>
+</g>
+<rect class="abcr _38_1_" x="126.85" y="85.00" width="13.00" height="31.50"/>
+<g class="e_39_1_">
+<use x="173.35" y="91.00" xlink:href="#hl"/>
+<path class="stroke" d="m169.85 88.00v21.00"/>
+<use x="173.35" y="88.00" xlink:href="#hd"/>
+</g>
+<rect class="abcr _39_1_" x="165.35" y="82.00" width="14.50" height="31.50"/>
+<g class="e_40_1_">
+<path class="stroke" d="m209.85 106.00v21.00"/>
+<use x="213.35" y="106.00" xlink:href="#hd"/>
+</g>
+<rect class="abcr _40_1_" x="206.85" y="100.00" width="13.00" height="31.50"/>
+<g class="e_41_1_">
+<path class="stroke" d="m249.85 100.00v21.00"/>
+<use x="253.35" y="100.00" xlink:href="#hd"/>
+</g>
+<rect class="abcr _41_1_" x="246.85" y="94.00" width="13.00" height="31.50"/>
+</svg></div>
+</textarea>
+<textarea id="src1" rows="32" cols="72"
+	style="font-family: monospace; font-size: 14px; display: none"></textarea>
+
+<!-- errors -->
+<font color="red" background-color="white">
+<div id="diverr"
+	style="height: 100px; width: 100%; overflow-y: auto">
+</div>
+</font>
+<p id="abc2svg">abc2svg</p>
+</div>
+
+<!-- right - needed for the scrollbars -->
+<div id="dright">
+
+<!-- rendering area -->
+<div id="target" class="target">
+<svg xmlns="http://www.w3.org/2000/svg"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xml:space="preserve"
+	width="8.3in" height="2in" viewBox="0 0 595 144">
+<title>(empty)</title>
+<text x="250" y="100" font-family="serif" font-size="12">(empty)</text>
+</svg>
+</div>
+</div>
+
+<script type="text/javascript">
+// the click callbacks must be defined after XHTML parsing
+	var e = document.getElementById("saveas");
+	e.addEventListener("click", saveas);
+	e = document.getElementById("playbutton");
+	e.addEventListener("click", play_tune);
+	e = document.getElementById("render");
+	e.addEventListener("click", render);
+	e = document.getElementById("s0");
+	e.addEventListener("click", function(){selsrc(0)});
+	e = document.getElementById("s1");
+	e.addEventListener("click", function(){selsrc(1)});
+	e = document.getElementById("source");
+	e.addEventListener("dragover", drag_over, false);
+	e.addEventListener("dragenter", drag_over, false);
+	e.addEventListener("drop", dropped, false)
+</script>
+
+</body>
+</html>
