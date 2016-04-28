@@ -4,14 +4,6 @@
  * and open the template in the editor.
  */
 
-var	abc_images,			// image buffer
-	abc_fname = ["noname.abc", ""],	// file names
-	abc,				// Abc object
-	ref= [],			// source reference array
-	colcl = [],			// colorized classes
-	abcplay,			// play engine
-	playing;
-
 if (!window.SITE)
     window.SITE = {};
 
@@ -38,16 +30,16 @@ SITE.User = function () {
 	// image output
 	this.my_img_out = function(str) {
 		abc_images += str
-                try {
-                    var x = abc_images+'</sgv></div>';
-                    
-                    this.tgt.innerHTML = 'x';
-                    this.tgt.innerHTML = x;
-                    
-                    var y=1;
-                } catch(e) {
-                    // just ignore it
-                }
+//                try {
+//                //    var x = abc_images+'</sgv></div>';
+//                    
+//                //    this.tgt.innerHTML = 'x';
+//                  //  this.tgt.innerHTML = x;
+//                    
+//                  ///  var y=1;
+//                } catch(e) {
+//                    // just ignore it
+//                }
 	};
         
 	this.img_out = this.my_img_out;

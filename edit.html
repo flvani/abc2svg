@@ -3,7 +3,7 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<script src="abc2svg.js" type="text/javascript" async="true"></script>
+<script src="abc2svg.flavio.js" type="text/javascript" async="true"></script>
 <script src="play.js" type="text/javascript" async="true"></script>
 <script src="user.js" type="text/javascript" async="false"></script>
 <style>
@@ -12,7 +12,7 @@
 	text tspan {white-space:pre; fill:currentColor}
 	#dright:hover {z-index: 10 !important}
 	#dright:active {z-index: 10 !important}
-	.help { position:relative; display:inline;}
+	.help { position:relative; display:none;}
 	.help>aside {
 		display: none;
 		position: absolute; width:400px; left:-150px; top:20px;
@@ -35,6 +35,16 @@
 			visibility: hidden
 		}
 	}
+	//body {margin:0; padding:0; border:0} 
+	//@page {margin:0} 
+	//text, tspan {white-space:pre; fill:currentColor} 
+	//svg {display:block} 
+	@media print { 
+		div.newpage {page-break-before: always} 
+		div.nobrk {page-break-inside: avoid} 
+	} 
+</style>
+        
 </style>
 <title>ABC edit with abc2svg</title>
 
@@ -44,11 +54,16 @@
 window.addEventListener('load', initApp, false);
 
 var	user;
-var	srcidx;
+var	abc_images,			// image buffer
+	abc,				// Abc object
+	ref= [],			// source reference array
+	colcl = [],			// colorized classes
+	abcplay,			// play engine
+	playing;
+
 
 function initApp() {
     user = new SITE.User();
-    srcidx = 0;
 };
 
 // debug
@@ -58,85 +73,41 @@ function debug(msg) {
 }
 
 // -- local functions
-
-// load the (ABC source or include) file in its textarea
-function loadtune() {
-	var files = document.getElementById("abcfile").files;
-	if (!files.length) {
-            alert('Please select a file!');
-            return;
-	}
-	abc_fname[srcidx] = files[0].name;
-
-	var reader = new FileReader();
-
-	// Closure to capture the file information
-	reader.onloadend = function(e) {
-            var	content = e.target.result,
-                    s = srcidx === 0 ? "source" : "src1";
-            document.getElementById(s).value = content;
-            document.getElementById("s" + srcidx).value = abc_fname[srcidx];
-
-            // if load of the ABC source, check if there is an include file
-            if (srcidx > 0)
-                    return;
-            var	sl = document.getElementById("s1"),
-                    i = content.indexOf('%%abc-include ');
-            if (i < 0) {
-                    sl.style.display = "none";
-                    return;
-            }
-            sl.style.display = "inline";
-            var j = content.indexOf('\n', i);
-            sl.value = content.slice(i + 14, j);
-	};
-
-	// Read the file as text
-	reader.readAsText(files[0], "UTF-8");
-}
-
-// display the source 0 or 1
-function selsrc(idx) {
-	if (idx === srcidx)
-		return;
-	var	o = srcidx ? "src" + srcidx : "source",
-		n = idx ? "src" + idx : "source";
-	document.getElementById(o).style.display = "none";
-	document.getElementById(n).style.display = "inline";
-	document.getElementById("s" + srcidx).style.backgroundColor = "#ffd0d0";
-	document.getElementById("s" + idx).style.backgroundColor = "#80ff80";
-	srcidx = idx;
-}
-
 // render the textarea content to the right side
 function render() {
 	var	target = document.getElementById("target"),
+                svg_source = document.getElementById("svg_source"),
 		diverr = document.getElementById("diverr");
-//	user.img_out = user.my_img_out;
-        user.tgt = target;
+        
+        
+        if( svg_source.style.display === 'inline' ) {
+            target.innerHTML = svg_source.value ;
+            return;
+        }
+        
+//        user.tgt = target;
 	abc = new Abc(user);
 	abc_images = '';
 	abc.tosvg('edit', '%%bgcolor white\n\
 %%beginsvg\n\
 <style type="text/css">\n\
-	rect.abcr {fill:#a08000; fill-opacity:0}\n\
-	rect.abcr:hover {fill-opacity:0.3}\n\
+rect.abcr {fill:#a08000; fill-opacity:0}\n\
+rect.abcr:hover {fill-opacity:0.3}\n\
 </style>\n\
 %%endsvg\n');
 
 	diverr.innerHTML = '';
-//	document.body.style.cursor = "wait";
+        
 	ref = []
 	try {
-		abc.tosvg(abc_fname[0], document.getElementById("source").value);
+		abc.tosvg('download.abc', document.getElementById("source").value);
 	} catch(e) {
 		alert(e.message + '\nabc2svg tosvg bug - stack:\n' + e.stack)
 		return
 	}
-//	document.body.style.cursor = "default";
-
 	try {
-		target.innerHTML = abc_images;
+                svg_source.value = abc_images;
+		target.innerHTML = svg_source.value ;
 	} catch(e) {
 		alert(e.message + '\nabc2svg image bug - abort')
 		return
@@ -249,24 +220,36 @@ function seltxt(elt) {
 	}
 }
 
+function switch_source() {
+    a = document.getElementById('source');
+    s = document.getElementById('svg_source');
+    if( s.style.display === 'inline' ) {
+        s.style.display = 'none';
+        a.style.display = 'inline';
+    } else {
+        s.style.display = 'inline';
+        a.style.display = 'none';
+    }
+    
+}
+
 // open a new window for file save
 function saveas() {      
-	var	s = srcidx == 0 ? "source" : "src1",
-		source = document.getElementById(s).value,
+        source = document.getElementById('source').value,
 
-	// create a Blob (html5 magic) that contains the ABC source
-		blob = new Blob([source], {type:'text/plain;charset=UTF-8"'}),
+        // create a Blob (html5 magic) that contains the ABC source
+        blob = new Blob([source], {type:'text/plain;charset=UTF-8"'}),
 
-	// create a link for our script to 'click'
-		link = document.createElement("a");
+        // create a link for our script to 'click'
+        link = document.createElement("a");
 
-	link.download = abc_fname[0];
+	link.download = 'download.abc';
 	link.innerHTML = "Hidden Link";	
 
 	// allow the code to work in webkit & Gecko based browsers
 	// without the need for a if / else block.
-//jfm:window.URL is well defined in dwb (base webkit)
-//	window.URL = window.URL || window.webkitURL;
+        //jfm:window.URL is well defined in dwb (base webkit)
+        //	window.URL = window.URL || window.webkitURL;
           
 	// Create the link Object.
 	if (typeof saveURL != 'undefined')
@@ -298,9 +281,8 @@ function destroyClickedElement(event) {
 
 // set the size of the font of the textarea
 function setfont() {
-	var	i = document.getElementById("fontsize");
-	document.getElementById("source").style.fontSize = i.value.toString() + "px"
-	document.getElementById("src1").style.fontSize = i.value.toString() + "px"
+	var i = document.getElementById("fontsize");
+	document.getElementById("source").style.fontSize = i.value.toString() + "px";
 }
 
 // playing
@@ -320,7 +302,7 @@ function play_tune() {
 	playing = true;			// get the schema and stop SVG generation
 	abcplay.clear()			// clear all playing events
 	try {
-		abc.tosvg(abc_fname[0], document.getElementById("source").value);
+		abc.tosvg('download.abc', document.getElementById("source").value);
 	} catch(e) {
 		alert(e.message + '\nabc2svg tosvg bug - stack:\n' + e.stack)
 		playing = false
@@ -403,7 +385,8 @@ Font size:
 <input type="number" id="fontsize" min="10" max="20" value="14" onchange="setfont()"/>
 
 <input id="saveas" type="button" value="Save"/>
-<input id="render" type="button" value="Render the tunes"/>
+<input id="render" type="button" value="Render" alt="Renders the tune" />
+<input id="abcsvg" type="button" value="ABC/SVG" alt="Switch between ABC Source and SGV source" />
 <!-- help -->
 <div class="help">Help
 <aside>
@@ -433,27 +416,66 @@ Oscillator volume:
 <input id="ovol" type="range" min="1" max="8" value="2"
 	onchange="abcplay.set_o_vol(this.value / 10)"/>
 </div>
-<input id="s0" type="button" style="display: inline; background-color: #80ff80"
-	value="(noname)"/>
-<input id="s1" type="button" style="display: none; background-color: #ffd0d0"
-	value="include"/>
-<input type="file" id="abcfile" accept="text/*" onchange="loadtune()"/>
-
 <!-- ABC source in textarea (main and include) -->
 <br/>
-<textarea id="source" rows="32" cols="72"
-	onselect="seltxt(this)"
-	style="font-family: monospace; font-size: 14px">X:1
-T:T
-C:C
+	<!--onselect="seltxt(this)"-->
+<textarea id="svg_source" rows="32" cols="110"
+	style="font-family: monospace; font-size: 14px; display: none;">
+</textarea>    
+<textarea id="source" rows="32" cols="110"
+          onselect="seltxt(this)"
+	style="font-family: monospace; font-size: 14px; display: inline;">
+X:1011
+%%barnumbers 1
+%%papersize A4
+%%landscape
+%%staffsep 20
+%%pagenumbering
+T:Parabéns Crioulo
+T:Parabéns Gaúcho
+C:Dimas Costa e Eleu Salvador
+Z:Flávio Vani
+N:Mapa para Acordeons Diatônicos powered by ABCXJS.
+F:https://www.youtube-nocookie.com/embed/xP7g7MbuDNc
 M:C
+L:1/8
+Q:120
 K:C
-L:1/4
-V:1 treble
-|abce|
+V:0 clef=treble
+G3/2
 </textarea>
-<textarea id="src1" rows="32" cols="72"
-	style="font-family: monospace; font-size: 14px; display: none"></textarea>
+<textarea id="source2" rows="32" cols="110"
+          onselect="seltxt(this)"
+	style="font-family: monospace; font-size: 14px; display: none;">
+X:1011
+%%barnumbers 1
+%%score 0 (1 2)
+%%papersize A4
+%%landscape
+%%staffsep 20
+%%pagenumbering
+T:Parabéns Crioulo
+T:Parabéns Gaúcho
+C:Dimas Costa e Eleu Salvador
+Z:Flávio Vani
+N:Mapa para Acordeons Diatônicos powered by ABCXJS.
+F:https://www.youtube-nocookie.com/embed/xP7g7MbuDNc
+M:C
+L:1/4
+Q:120
+K:C
+V:0 clef=treble
+V:1 clef=bass stem=down
+V:2 clef=bass stem=up
+[V:0]| z E1/2F1/4^F1/4|: G z2 c3/4B1/4 | A z2  d | B G z1/2 G1/2A1/2B1/2         | d c2 c3/4c1/4      | c3/2 A1/2 A3/4A1/4 c3/4c1/4  |
+w:Pa-ra- - béns!  Pa-ra-béns! Sa-ú-de, fe-li-ci-da-de! Que tu co-lhas, sem-pre, to-do
+[V:1]| x2 |: x C,, C,, x | x F,,, F,,, x | x4 | x4 | x4 |
+[V:2]| z2 |: z [C,E,G,] [C,E,G,] z | z [F,,A,,C,] [F,,A,,C,] z | G,, [G,,B,,D,] G,, [G,,B,,D,] | C,, [C,E,G,] C,, z | F,, [F,,A,,C,] F,, [F,,A,,C,] |
+[V:0]| c G  G3/4G1/4 G3/4G1/4    | A3/4A1/4 A3/4A1/4 B3/4B1/4 A3/4G1/4  |1 d c2 E1/2F1/4^F1/4 :|2 c G  G3/4G1/4 G3/4G1/4    | A3/4A1/4 A3/4A1/4 B3/4B1/4 A3/4G1/4  | d c2-c             |]
+w: di-a, paz e a-le-gri-a na la-vou-ra da ami-za-de Pa-ra-* za-de, paz e a-le-gri-a na la-vou-ra da ami-za-de!
+[V:1]| x4 | x4 |1 x4 :|2 x4 | x4 | x4 |]
+[V:2]| C,, [C,E,G,] C,, [C,E,G,] | F,, [F,,A,,C,] G,, [G,,B,,D,]        |1 C,, [C,E,G,] C,, z :|2 C,, [C,E,G,] C,, [C,E,G,] | F,, [F,,A,,C,] G,, [G,,B,,D,]        | C,, [C,E,G,] C,, [C,E,G,] |]
+</textarea>
 
 <!-- errors -->
 <font color="red" background-color="white">
@@ -487,14 +509,12 @@ V:1 treble
 	e.addEventListener("click", play_tune);
 	e = document.getElementById("render");
 	e.addEventListener("click", render);
-	e = document.getElementById("s0");
-	e.addEventListener("click", function(){selsrc(0)});
-	e = document.getElementById("s1");
-	e.addEventListener("click", function(){selsrc(1)});
+	e = document.getElementById("abcsvg");
+	e.addEventListener("click", switch_source);
 	e = document.getElementById("source");
 	e.addEventListener("dragover", drag_over, false);
 	e.addEventListener("dragenter", drag_over, false);
-	e.addEventListener("drop", dropped, false)
+	e.addEventListener("drop", dropped, false);
 </script>
 
 </body>

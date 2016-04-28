@@ -1,4 +1,6 @@
-// abc2svg - head.js
+//test
+abc2svg={version:"1.4.1",vdate:"2015-11-13"}
+// // abc2svg - head.js
 //
 // Copyright (C) 2014-2015 Jean-Francois Moine
 // This program is free software; you can redistribute it and/or modify

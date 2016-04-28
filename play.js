@@ -7,6 +7,7 @@
 // published by the Free Software Foundation.");
 
 // AbcPlay creation
+
 function AbcPlay(i_onend) {
 
 	// -- global --
@@ -117,7 +118,7 @@ else
 						//	s: starting symbol
 						//	k: starting key (first voice)
 		// constants from Abc
-		const	BAR = 0,
+			BAR = 0,
 			GRACE = 4,
 			KEY = 5,
 			NOTE = 8,
